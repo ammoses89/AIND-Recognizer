@@ -102,7 +102,25 @@ class SelectorCV(ModelSelector):
     '''
 
     def select(self):
-        warnings.filterwarnings("ignore", category=DeprecationWarning)
 
-        # TODO implement model selection using CV
-        raise NotImplementedError
+        logl_model_list = []
+        split_method = KFold(n_splits=2)
+        avg = lambda l: sum(l) / len(l)
+        for n_components in range(self.min_n_components, self.max_n_components+1):
+            try:
+                hmm_model = self.base_model(n_components)
+                # get the log likelihood
+                log_l_list = []
+                for cv_train_idx, cv_test_idx in split_method.split(self.sequences):
+                    X, lengths = combine_sequences(cv_train_idx, self.sequences)
+                    log_l = hmm_model.score(X, lengths)
+                    log_l_list.append(log_l)
+                logl_model_list.append((avg(log_l_list), hmm_model))
+            except:
+                continue
+        if logl_model_list:
+            _, model = max(logl_model_list, key=lambda x: x[0])
+            return model
+        else:
+            return None
+
